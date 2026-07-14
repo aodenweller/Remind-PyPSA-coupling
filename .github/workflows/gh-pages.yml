@@ -1,51 +1,55 @@
-# Sample workflow for building and deploying a MkDocs site to GitHub Pages
+# Deploys versioned MkDocs docs via mike: main -> "latest" (site root default),
+# develop -> /develop/, both live simultaneously on the same gh-pages branch.
 name: Deploy MkDocs with GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
       - name: Install MkDocs and dependencies
         # Single source of truth: the `docu` extra in pyproject.toml.
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[docu]"
-      - name: Build with MkDocs
-        run: mkdocs build --strict
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Build with MkDocs (strict dry run)
+        # mike deploy doesn't itself fail on broken links/strict warnings -- this keeps
+        # that safety net as a separate, throwaway build.
+        run: mkdocs build --strict --site-dir /tmp/mkdocs-strict-check
+
+      - name: Configure git identity for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy main as "latest"
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mike deploy --push --update-aliases main latest
+          mike set-default --push latest
+
+      - name: Deploy develop
+        if: github.ref == 'refs/heads/develop'
+        run: mike deploy --push develop

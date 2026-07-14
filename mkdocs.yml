@@ -46,6 +46,8 @@ theme:
 docs_dir: "./docs"
 
 extra:
+  version:
+    provider: mike
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/pik-piam/IAM-PyPSA-coupling

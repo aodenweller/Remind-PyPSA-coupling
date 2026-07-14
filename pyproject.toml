@@ -21,7 +21,9 @@ Documentation = "https://pik-piam.github.io/IAM-PyPSA-coupling/"
 jupyter = ["ipykernel","ipython"]
 gdx = ["gamspy"]
 ssp = ["httpx"]   # live SSP fetch from the IIASA API (iampypsa.io.ssp.fetch_ssp_data)
-docu= ["mkdocs<2", "mkdocs_gen_files", "mkdocstrings[python]", "mkdocs-literate-nav", "mkdocs-material", "mkdocs-include-dir-to-nav"]
+# mkdocs-gen-files<0.6.1 / mkdocs-literate-nav<0.6.3: their 0.6.1/0.6.3 releases added an
+# undeclared `properdocs` dependency that silently hijacks mike/mkdocs-material's build step.
+docu= ["mkdocs<2", "mkdocs_gen_files<0.6.1", "mkdocstrings[python]", "mkdocs-literate-nav<0.6.3", "mkdocs-material", "mkdocs-include-dir-to-nav", "mike"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
