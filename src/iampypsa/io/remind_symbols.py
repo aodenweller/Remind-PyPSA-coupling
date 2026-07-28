@@ -261,7 +261,8 @@ def load_variable_set(loader: RemindLoader, spec: dict[str, Any]) -> pd.DataFram
         ``[year, region, <label_col>, value, unit]``.
 
     Raises:
-        ValueError: If ``loader`` is not IAMC-backed.
+        ValueError: If ``loader`` is not IAMC-backed, or a ``fallback:`` entry for an absent
+            token has no ``value`` key.
     """
     from iampypsa.io.iamc import build_variable_set, read_iamc
 
@@ -307,7 +308,10 @@ def load_variable_set(loader: RemindLoader, spec: dict[str, Any]) -> pd.DataFram
                 fb.get("reason", "(no reason given)"),
             )
             if "value" not in fb:
-                continue
+                raise ValueError(
+                    f"Fallback entry for token {token!r} ({label_col!r}) has no 'value' key: "
+                    f"{fb}. A fallback declaration must set 'value' to be usable."
+                )
             rows = yr_reg.copy()
             rows[label_col] = token
             rows["value"] = fb["value"]

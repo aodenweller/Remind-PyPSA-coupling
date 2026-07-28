@@ -47,8 +47,9 @@ def read_gdx_symbol(
     if df is None:
         return df
     if rename_columns:
-        # errors="ignore": candidate fallbacks may have different columns
-        # (e.g. the v32 variable has 'level', the p32 parameter has 'value').
+        # .rename() ignores keys absent from df's columns by default — needed because candidate
+        # fallbacks may have different columns (e.g. the v32 variable has 'level', the p32
+        # parameter has 'value').
         df = df.rename(columns=dict(rename_columns))
     return df
 

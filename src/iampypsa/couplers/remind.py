@@ -154,8 +154,13 @@ class RemindGdxCoupler(Coupler):
             sparse: The loaded frame, with explicit zeros already dropped by GAMS.
             modeled_techs: The ``[region, technology]`` pairs to reindex against.
             parameter: Canonical parameter name for the resulting rows.
+
+        Raises:
+            ValueError: If ``sparse`` carries more than one distinct unit.
         """
         units = sparse["unit"].dropna().unique() if "unit" in sparse.columns else []
+        if len(units) > 1:
+            raise ValueError(f"Heterogeneous units for {parameter!r}: {sorted(units)}.")
         merged = modeled_techs.merge(
             sparse[["region", "technology", "value"]], on=["region", "technology"], how="left",
         )
@@ -386,10 +391,7 @@ class RemindIamcCoupler(Coupler):
         # --- assemble ---
         frames = [capex, lifetime, fom_pct, vom, eff, fuel, co2i]
         keep = ["region", "technology", "parameter", "value", "unit"]
-        df = pd.concat(
-            [f[keep] for f in frames if set(keep).issubset(f.columns)],
-            ignore_index=True,
-        )
+        df = pd.concat([f[keep] for f in frames], ignore_index=True)
         df = apply_currency_factor(df, currency_factor)
         # Output boundary (mirrors RemindGdxCoupler): rename is a no-op here — mif labels are
         # already canonical — then per-fuel price rows become one `fuel` row per technology.
@@ -482,6 +484,12 @@ def read_region_map(
 
     grouped = region_mapping.groupby(source)[target].apply("unique").apply(list)
     if flatten:
+        multi = {k: v for k, v in grouped.items() if len(v) > 1}
+        if multi:
+            raise ValueError(
+                f"flatten=True requires every {source!r} to map to exactly one {target!r}, "
+                f"but these map to several: {multi}."
+            )
         grouped = grouped.apply(lambda x: x[0])
     return grouped.to_dict()
 

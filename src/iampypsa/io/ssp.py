@@ -15,12 +15,12 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 #: Default IIASA SSP REST endpoint. NOT hardcoded at the call site: override via the
-#: ``RPYCPL_SSP_API_URL`` env var (deployment-level) or the ``url=`` argument (call-level).
+#: ``IAMPYPSA_SSP_API_URL`` env var (deployment-level) or the ``url=`` argument (call-level).
 #: Decision: stay on plain REST via httpx rather than ``pyam``/``ixmp4`` — those pull a heavy
 #: dependency tree (and a DB client) just to download two variables, which is not worth it for an
 #: optional extra. Revisit only if we need pyam's query/units features beyond a flat tabulate.
 IIASA_URL = os.environ.get(
-    "RPYCPL_SSP_API_URL", "https://ixmp4.ece.iiasa.ac.at/v1/ssp/iamc/datapoints/tabulate"
+    "IAMPYPSA_SSP_API_URL", "https://ixmp4.ece.iiasa.ac.at/v1/ssp/iamc/datapoints/tabulate"
 )
 _PAGE_SIZE = 20_000
 

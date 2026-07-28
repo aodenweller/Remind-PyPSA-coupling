@@ -4,7 +4,7 @@ Based on the technology mapping, cost parameters come from the IAM output, from 
 or are set directly from values specified in the mapping.
 
 The *extraction* of individual cost parameters is source-specific and lives in each ``Coupler`` subclass.
-The shared functions (which live here) — provide the conversion/mapping and merging tools.
+The shared functions, which live here, provide the conversion/mapping and merging tools.
 """
 
 import logging
@@ -61,6 +61,10 @@ def apply_currency_factor(
     price pathway alike. One-directional (IAM USD -> PyPSA baseline currency); it converts
     between currencies, not between currency *years* (e.g. REMIND's US$2017 vs the baseline's
     own reporting year), which nothing handles yet.
+
+    Only ``value`` is scaled — the ``unit`` column is left as the IAM's native currency (e.g.
+    ``USD/MW``) regardless of ``currency_factor``. A caller that needs the unit string to name
+    the target currency must relabel it separately.
 
     Args:
         values: Long frame with a ``value`` column, and a ``parameter`` column if selecting.
