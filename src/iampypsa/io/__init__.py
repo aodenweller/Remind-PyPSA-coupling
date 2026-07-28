@@ -1,6 +1,9 @@
-"""IAM input readers behind one loader — currently GDX and IAMC ``.mif`` (``Backend`` is the
-extension point for further formats), plus the config-aware symbol layer (``remind_symbols``)
-that resolves logical names + units on top of the loader."""
+"""IAM input readers behind one loader.
+
+Currently GDX and IAMC ``.mif`` (``Backend`` is the extension point for further formats), plus
+the config-aware symbol layer (``remind_symbols``) that resolves logical names + units on top
+of the loader.
+"""
 
 from iampypsa.io.gdx import list_gdx_symbols, read_gdx_scalar, read_gdx_symbol
 from iampypsa.io.iamc import list_iamc_variables, read_iamc

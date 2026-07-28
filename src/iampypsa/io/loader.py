@@ -1,4 +1,4 @@
-"""Unify the GDX and ``.mif`` backends behind one loader with candidate resolution."""
+"""One loader unifying the GDX and ``.mif`` backends, with candidate resolution."""
 
 from collections.abc import Mapping, Sequence
 from os import PathLike
@@ -60,7 +60,19 @@ class RemindLoader:
         symbol: SymbolRef,
         rename_columns: Mapping[str, str] | None = None,
     ) -> pd.DataFrame:
-        """Resolve a symbol reference (name or candidates), then load it."""
+        """Resolve a symbol reference (name or candidates), then load it.
+
+        Args:
+            symbol: An exact symbol/variable name, or an ordered list of candidates
+                (first one present wins).
+            rename_columns: Column renames to apply on read.
+
+        Returns:
+            The symbol's records as a long DataFrame.
+
+        Raises:
+            KeyError: If none of the candidates are present in the source.
+        """
         name = self.resolve_symbol(symbol)
         if self.backend == "gdx":
             return read_gdx_symbol(self.source, name, rename_columns)

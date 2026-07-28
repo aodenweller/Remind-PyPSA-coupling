@@ -1,4 +1,4 @@
-"""Load the technology-parameter map for cost sourcing.
+"""The technology-parameter map for cost sourcing.
 
 Schema: see examples/technology-mapping.example.yaml.
 
@@ -22,7 +22,15 @@ def load_technology_parameters(path: str | PathLike) -> dict[str, Any]:
 
 
 def iam_name(tech: str, spec: Any) -> str:
-    """Return the IAM technology name an entry pulls IAM values from."""
+    """Return the IAM technology name an entry pulls IAM values from.
+
+    Args:
+        tech: The technology-mapping entry's own (PyPSA-side) name.
+        spec: The entry's raw spec — a bare string, or a dict with an optional ``iam_name:`` key.
+
+    Returns:
+        ``spec["iam_name"]`` if declared, else ``tech`` unchanged.
+    """
     if isinstance(spec, str):
         return tech
     return spec.get("iam_name", tech)

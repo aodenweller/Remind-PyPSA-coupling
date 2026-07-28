@@ -1,4 +1,4 @@
-"""Build proxy (reference-distribution) shares from named proxy frames.
+"""Proxy (reference-distribution) shares, built from named proxy frames.
 
 A *proxy* is the reference distribution used to split a coarse IAM regional value across
 country-level members.  Proxies are supplied as a name→frame registry
@@ -40,11 +40,12 @@ def build_demand_proxy_from_dd(
     from ``population`` are dropped. Returns the same ``MultiIndex[(iso2, year)]`` shape.
 
     Args:
-        degree_days (pd.DataFrame): The intensive degree-day frame (HDD or CDD).
-        population (pd.DataFrame): The extensive population frame to weight by.
-        value_col (str): The column name in both frames to multiply.
+        degree_days: The intensive degree-day frame (HDD or CDD).
+        population: The extensive population frame to weight by.
+        value_col: The column name in both frames to multiply.
+
     Returns:
-        pd.DataFrame: The extensive heating/cooling demand proxy frame.
+        The extensive heating/cooling demand proxy frame.
     """
     b = degree_days.reset_index()[["iso2", "year", value_col]].sort_values("year")
     w = population.reset_index()[["iso2", "year", value_col]].sort_values("year")
@@ -80,24 +81,27 @@ def build_proxy_shares(
     Shares are a weighted blend of the normalised proxy frames named in the sector's weight dict
     ``sector_weights[sector]``. Proxy years are clamped **per proxy** to that
     proxy's last available year (so degree-day frames covering fewer years clamp independently of
-    population/GDP). 
-    
+    population/GDP).
+
     Missing proxy data for *configured* countries raises; unconfigured countries
     with missing data get zero weight.
 
     Args:
-        members (list[str]): The region's member countries (ISO2).
-        year (int): The scenario year.
-        sector (str): The sector name (e.g. "AC").
-        proxies (dict[str, pd.DataFrame]): Name→frame registry of proxy frames.
-        sector_weights (dict): Sector→proxy-weight dict.
-        configured_countries (set[str] | None): Countries to include in the shares; if ``None``,
-            all ``members`` are included. Missing proxy data for configured countries raises.
-    Raises:
-        ValueError: If a sector requests a proxy that is not present in ``proxies`
-        ValueError: If a configured country is missing proxy data for the selected year.
+        members: The region's member countries (ISO2).
+        year: The scenario year.
+        sector: The sector name (e.g. "AC").
+        proxies: Name→frame registry of proxy frames.
+        sector_weights: Sector→proxy-weight dict.
+        configured_countries: Countries to include in the shares; ``None`` includes all
+            ``members``. Missing proxy data for configured countries raises.
+
     Returns:
-        dict[str, float]: The normalised shares for the configured countries.
+        The normalised shares for the configured countries.
+
+    Raises:
+        ValueError: If ``sector`` is not in ``sector_weights``, if a requested proxy is absent
+            from ``proxies``, or if a configured country is missing proxy data for the year.
+
     Example:
         >>> proxies = {
         ...     "population": pd.DataFrame(
@@ -115,17 +119,17 @@ def build_proxy_shares(
         ...         ),
         ...     ),
         ... }
-        >>> sector_weights = {"AC": {"population": 0.4, "gdp": 0.6}}"
+        >>> sector_weights = {"AC": {"population": 0.4, "gdp": 0.6}}
     """
     if configured_countries is None:
         configured_countries = set(members)
-    
-    if not sector in sector_weights:
+
+    if sector not in sector_weights:
         raise ValueError(
             f"Sector '{sector}' not present in sector_weights; available sectors: "
             f"{sorted(sector_weights)}."
         )
-    sec_w = sector_weights.get(sector)
+    sec_w = sector_weights[sector]
 
     missing_proxies = [name for name in sec_w if name not in proxies]
     if missing_proxies:
@@ -174,6 +178,19 @@ def build_ssp_shares(
 
     Prefer calling ``build_proxy_shares`` with an explicit ``proxies`` registry; this wrapper
     exists so pre-registry callers keep working.
+
+    Args:
+        members: The region's member countries (ISO2).
+        year: The scenario year.
+        sector: The sector name (e.g. "AC").
+        pop_data: Population proxy frame.
+        gdp_data: GDP proxy frame.
+        sector_weights: Sector→proxy-weight dict.
+        configured_countries: Countries to include in the shares; ``None`` includes all
+            ``members``.
+
+    Returns:
+        The normalised shares for the configured countries.
     """
     return build_proxy_shares(
         members,

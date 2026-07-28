@@ -1,4 +1,4 @@
-"""Read REMIND symbols from a GDX container (via ``gamspy``).
+"""REMIND symbol readers for GDX containers (via ``gamspy``).
 
 Provides symbol/scalar readers and a symbol-name listing, with the opened container cached
 per path so repeated reads against the same GDX file don't re-open it.
@@ -7,6 +7,8 @@ per path so repeated reads against the same GDX file don't re-open it.
 import functools
 from collections.abc import Mapping
 from os import PathLike
+
+import pandas as pd
 
 
 @functools.lru_cache
@@ -22,8 +24,22 @@ def read_gdx_symbol(
     symbol: str,
     rename_columns: Mapping[str, str] | None = None,
     error_on_empty: bool = True,
-):
-    """Read one GDX symbol into a long DataFrame."""
+) -> pd.DataFrame | None:
+    """Read one GDX symbol into a long DataFrame.
+
+    Args:
+        path: GDX file to read from.
+        symbol: GDX symbol name.
+        rename_columns: Column renames to apply on read.
+        error_on_empty: Raise if the symbol has no records, rather than returning ``None``.
+
+    Returns:
+        The symbol's records as a long DataFrame, or ``None`` if empty and
+        ``error_on_empty`` is ``False``.
+
+    Raises:
+        ValueError: If the symbol is empty and ``error_on_empty`` is ``True``.
+    """
     data = _open_container(str(path))[symbol]
     df = data.records
     if error_on_empty and (df is None or df.empty):
@@ -38,7 +54,19 @@ def read_gdx_symbol(
 
 
 def read_gdx_scalar(path: str | PathLike, symbol: str) -> float | str:
-    """Read a scalar/string GDX symbol (e.g. model version, run name)."""
+    """Read a scalar/string GDX symbol (e.g. model version, run name).
+
+    Args:
+        path: GDX file to read from.
+        symbol: GDX symbol name.
+
+    Returns:
+        The scalar value: a single ``value`` for a scalar parameter, or the first element
+        label for a string set.
+
+    Raises:
+        ValueError: If the symbol has no records.
+    """
     df = read_gdx_symbol(path, symbol, error_on_empty=False)
     if df is None or df.empty:
         raise ValueError(f"{symbol} has no records in {path}")

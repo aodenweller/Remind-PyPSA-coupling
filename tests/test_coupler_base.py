@@ -27,10 +27,10 @@ SECTOR_WEIGHTS = {
 YEARS = [2090, 2100]
 
 
-def test_adapter_is_directly_instantiable():
+def test_coupler_is_directly_instantiable():
     """Coupler has no abstract methods — it can be created without a subclass."""
-    adapter = Coupler(loader=None, symbols={}, region_map={}, config={})
-    assert isinstance(adapter, Coupler)
+    coupler = Coupler(loader=None, symbols={}, region_map={}, config={})
+    assert isinstance(coupler, Coupler)
 
 
 def test_technology_mapping_example_matches_examples_dir():

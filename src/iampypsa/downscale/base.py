@@ -15,7 +15,15 @@ class Downscaler(ABC):
 
     @abstractmethod
     def downscale(self, coarse: pd.DataFrame, proxy_shares: pd.DataFrame) -> pd.DataFrame:
-        """Distribute coarse values to finer units using proxy shares."""
+        """Distribute coarse values to finer units using proxy shares.
+
+        Args:
+            coarse: Values at the coarse resolution (e.g. IAM region).
+            proxy_shares: Shares distributing each coarse unit over its finer members.
+
+        Returns:
+            Values re-keyed to the finer resolution.
+        """
         ...
 
 
@@ -34,9 +42,18 @@ class ProportionalDownscaler(Downscaler):
     ) -> pd.DataFrame:
         """Multiply each coarse value by its members' proxy shares.
 
-        ``proxy_shares`` has columns ``[coarse_id, fine_id, share]`` (shares summing to 1
-        within each ``coarse_id``); returns the coarse frame re-keyed to ``fine_id`` with
-        ``value`` split by share.
+        Args:
+            coarse: Values at the coarse resolution, keyed by ``coarse_id``.
+            proxy_shares: Columns ``[coarse_id, fine_id, share]``, shares summing to 1 within
+                each ``coarse_id``.
+            coarse_id: Coarse key column, shared by both frames.
+            fine_id: Fine key column in ``proxy_shares``.
+            share_col: Share column in ``proxy_shares``.
+            value_col: Value column in ``coarse`` to split.
+
+        Returns:
+            ``coarse`` re-keyed to ``fine_id`` (renamed to ``coarse_id``), with ``value_col``
+            split by share.
         """
         merged = coarse.merge(proxy_shares, on=coarse_id, how="left")
         merged[value_col] = merged[value_col] * merged[share_col]

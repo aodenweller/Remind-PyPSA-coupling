@@ -102,8 +102,15 @@ def read_symbol_config(
 def merge_region_overrides(config: dict[str, Any], region: str | None) -> dict[str, Any]:
     """Merge ``default`` with ``overrides[region]`` per logical name (region entry wins).
 
-    Pure dict logic (no I/O): ``region=None`` returns ``default`` unchanged; an unknown region
-    (absent from ``overrides``) also returns ``default``. Call directly to debug the merge.
+    Pure dict logic (no I/O). Call directly to debug the merge.
+
+    Args:
+        config: A ``{default, overrides}`` symbol config, as returned by ``read_symbol_config``.
+        region: IAM region whose ``overrides:`` block wins over ``default:``. ``None``, or a
+            region absent from ``overrides``, returns ``default`` unchanged.
+
+    Returns:
+        The resolved symbol map for ``region``.
     """
     merged = dict(config["default"])
     if region is not None:
@@ -136,7 +143,7 @@ def _derive_symbol_ref(spec: dict[str, Any]) -> SymbolRef:
     return ref
 
 
-def _source_unit(spec: dict[str, Any], ref, resolved_name: str, df: pd.DataFrame) -> str | None:
+def _derive_source_unit(spec: dict[str, Any], ref, resolved_name: str, df: pd.DataFrame) -> str | None:
     """Resolve the source unit for a single-quantity spec.
 
     Prefers a live ``unit`` column on ``df`` (mif); raises on heterogeneous live values or a
@@ -173,6 +180,19 @@ def load_frame(loader: RemindLoader, spec: dict[str, Any]) -> pd.DataFrame:
 
     An optional ``filter: {column: value}`` drops rows that don't match — e.g. selecting a
     single GAMS domain slice (``rlf: 1``) out of a symbol that carries extra dimensions.
+
+    Args:
+        loader: Bound loader to read the symbol from.
+        spec: A single-quantity symbol spec (``symbol:``, plus optional ``rename:``,
+            ``filter:``, ``unit:``/``units:``, ``to_unit:``).
+
+    Returns:
+        The loaded, unit-converted frame, with a ``unit`` column stamped unless no unit is
+        available at all.
+
+    Raises:
+        ValueError: If the live ``unit`` column carries more than one value, or disagrees
+            with a declared ``unit:``.
     """
     ref = _derive_symbol_ref(spec)
     resolved = loader.resolve_symbol(ref)
@@ -183,7 +203,7 @@ def load_frame(loader: RemindLoader, spec: dict[str, Any]) -> pd.DataFrame:
         # (e.g. rlf: 1) -- compare as strings so a plain int in the spec still matches.
         df = df[df[col].astype(str) == str(value)]
     to_unit = spec.get("to_unit")
-    src_unit = _source_unit(spec, ref, resolved, df)
+    src_unit = _derive_source_unit(spec, ref, resolved, df)
     if to_unit is not None and src_unit is not None and "value" in df.columns:
         df = df.copy()
         df["value"] = df["value"] * unit_factor(src_unit, to_unit)
@@ -198,9 +218,16 @@ def load_set(loader: RemindLoader, spec: dict[str, Any]) -> pd.DataFrame:
     """Load a *mixed-unit set* symbol: one REMIND symbol whose ``index`` column selects several
     quantities with different units (e.g. ``pm_data`` indexed by ``char`` → lifetime/FOM/VOM).
 
-    The spec's ``schema`` maps each index value to ``{parameter, unit, to_unit}``. Returns a long
-    frame with a ``parameter`` column, ``value`` converted per row via the central units table,
-    and a ``unit`` column set to the target unit. Index values not in the schema are dropped.
+    The spec's ``schema`` maps each index value to ``{parameter, unit, to_unit}``.
+
+    Args:
+        loader: Bound loader to read the symbol from.
+        spec: A mixed-unit set spec (``symbol:``, ``index:``, ``schema:``, optional ``rename:``).
+
+    Returns:
+        Long frame with a ``parameter`` column, ``value`` converted per row via the central
+        units table, and a ``unit`` column set to the target unit. Index values not in the
+        schema are dropped.
     """
     ref = _derive_symbol_ref(spec)
     raw = loader.load_symbol(ref, rename_columns=spec.get("rename"))
@@ -222,9 +249,19 @@ def load_variable_set(loader: RemindLoader, spec: dict[str, Any]) -> pd.DataFram
     """Load a *variable-set* spec: many IAMC variables → one token-labelled frame.
 
     IAMC-only (no GDX equivalent — GDX already carries a tech-domain column per symbol).
-    ``variables:`` maps IAMC variable names to token labels; optional ``derived:`` declares
-    linear combinations. Fallback tokens in ``spec['fallback']`` (``{token: {value, unit,
-    reason}}``) are synthesised for every ``(year, region)`` when absent from the data.
+
+    Args:
+        loader: Bound loader to read from; must be IAMC-backed.
+        spec: A variable-set spec (``variables:`` maps IAMC variable names to token labels;
+            optional ``derived:`` declares linear combinations; optional ``fallback:``
+            (``{token: {value, unit, reason}}``) synthesises rows for every ``(year, region)``
+            when a token is absent from the data).
+
+    Returns:
+        ``[year, region, <label_col>, value, unit]``.
+
+    Raises:
+        ValueError: If ``loader`` is not IAMC-backed.
     """
     from iampypsa.io.iamc import build_variable_set, read_iamc
 
@@ -291,9 +328,21 @@ def rename_technologies(
 ) -> pd.DataFrame:
     """Rename raw source-model technology tokens to the canonical vocabulary.
 
-    ``names`` is the ``technology_names`` token → canonical-name block; empty/absent is a
-    no-op. Unmapped values are kept as-is, per ``on_missing``: ``"warn"`` (default), ``"raise"``,
-    or ``"ignore"``.
+    Unmapped values are kept as-is, per ``on_missing``.
+
+    Args:
+        df: Frame carrying the technology column.
+        names: The ``technology_names`` token → canonical-name block. Empty or absent is a
+            no-op.
+        col: Column holding the raw technology tokens.
+        on_missing: ``"warn"`` (default, logs and keeps unmapped values as-is), ``"raise"``,
+            or ``"ignore"``.
+
+    Returns:
+        ``df`` with ``col`` renamed.
+
+    Raises:
+        KeyError: If ``on_missing="raise"`` and a value has no ``names`` entry.
     """
     if not names or col not in df.columns:
         return df
@@ -317,6 +366,13 @@ def load_spec(loader: RemindLoader, spec: dict[str, Any]) -> pd.DataFrame:
     Dispatches on spec *shape* (``variables:`` vs ``symbol:``), not on ``loader.backend`` —
     though a ``variables:`` spec still only works against a loader whose format supports it
     (currently IAMC; see ``load_variable_set``).
+
+    Args:
+        loader: Bound loader to read the symbol from.
+        spec: A symbol spec of either shape.
+
+    Returns:
+        The loaded frame, per ``load_variable_set`` or ``load_frame``.
     """
     if "variables" in spec:
         return load_variable_set(loader, spec)

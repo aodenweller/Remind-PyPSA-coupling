@@ -200,8 +200,8 @@ method; reading one symbol or applying one pure transform is a direct call.**
 |---|---|---|
 | `co2_prices` | `extract_co2_prices` | Filter/reindex the CO2 price pathway to the coupled `regions × years` grid (missing → 0). Currency scaling is `costs.apply_currency_factor`, shared with the cost table. |
 | `loads` | `convert_loads` | Reduce IAM demand to one row per `(year, region, sector)` in annual MWh. |
-| `capacities` | `apply_consolidation`, `adjust_link_capacities_to_input`, `aggregate_capacities_to_carriers` | Consolidate (VRE-variant merge, battery scaling); divide link-like techs by efficiency (output→input basis); map IAM techs to PyPSA carriers and sum. Sequenced by `Coupler.build_capacity_targets`. |
-| `costs` | `build_iam_techdata`, `build_pypsa_techdata`, `build_set_value_overrides`, `apply_overrides`, `add_discount_rate`, `convert_investment_to_input_capacity_basis` | Split cost values by [technology-mapping](getting-started/technology-mapping.md) source, merge IAM values onto the PyPSA baseline, convert investment from per-output to per-input capacity (`× efficiency ** exp`), add discount-rate rows. |
+| `capacities` | `apply_consolidation`, `convert_capacities_to_input_capacity_basis`, `aggregate_capacities_to_carriers` | Consolidate (VRE-variant merge, battery scaling); divide link-like techs by efficiency (output→input basis); map IAM techs to PyPSA carriers and sum. Sequenced by `Coupler.build_capacity_targets`. |
+| `costs` | `build_iam_techdata`, `build_pypsa_techdata`, `build_fixed_value_overrides`, `apply_overrides`, `add_discount_rate`, `convert_investment_to_input_capacity_basis` | Split cost values by [technology-mapping](getting-started/technology-mapping.md) source, merge IAM values onto the PyPSA baseline, convert investment from per-output to per-input capacity (`× efficiency`), add discount-rate rows. |
 
 The `Coupler`'s `build_*` / `extract_*` methods are thin orchestrations over these functions; each function is
 documented individually in the **Reference** section of the nav.

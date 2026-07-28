@@ -1,4 +1,4 @@
-"""Disaggregate IAM regional demand to country level (region→country, Stage 1).
+"""Region→country disaggregation of IAM regional demand (Stage 1).
 
 Single-member regions are a no-op; multi-member regions are split by proxy shares — a
 sector-specific blend of registered proxies (e.g. GDP/population for AC, heating/cooling
@@ -26,9 +26,17 @@ def disaggregate_demand_to_country(
 ) -> pd.DataFrame:
     """Split each (year, region, sector) row into per-country rows; return a long-format table.
 
-    ``proxies`` is a name→frame registry (e.g. ``{"population": ..., "gdp": ...,
-    "heating_demand": ..., "cooling_demand": ...}``); each sector's ``sector_weights`` entry names
-    which proxies to blend. Passed straight to :func:`build_proxy_shares`.
+    Args:
+        sectoral_load: Long frame with ``[year, region, sector, value, unit]``.
+        region_to_countries: IAM region → member countries (ISO2).
+        proxies: Name→frame registry (e.g. ``{"population": ..., "gdp": ..., "heating_demand":
+            ..., "cooling_demand": ...}``), passed straight to ``build_proxy_shares``.
+        sector_weights: Sector → proxy-weight dict, naming which proxies to blend per sector.
+        configured_countries: Countries to keep; demand attributed to others is dropped, with
+            a warning naming them and their share.
+
+    Returns:
+        ``[year, region, sector, value, unit]``, one row per ``(year, country, sector)``.
     """
     rows: list[dict] = []
     warned: set[str] = set()

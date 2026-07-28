@@ -86,6 +86,8 @@ plugins:
     handlers:
       python:
         paths: ["./src/iampypsa"]
+        options:
+          docstring_style: google
 
 nav:
   - Home: index.md

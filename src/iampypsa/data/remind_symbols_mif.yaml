@@ -144,7 +144,7 @@ default:
     label_col: technology
     to_unit: yr
 
-  # NOTE: PyPSA needs FOM as %/yr; the IAMC adapter divides by capex and multiplies by 100.
+  # NOTE: PyPSA needs FOM as %/yr; the IAMC coupler divides by capex and multiplies by 100.
   cost_omf:
     variables:
       "Tech|Electricity|Gas|Gas Turbine|OM Cost|fixed":                         gas-ocgt
@@ -280,7 +280,7 @@ default:
   # --- Demand variables ----------------------------------------------------
   # Read by RemindIamcCoupler.build_regional_demand via load_spec / load_variable_set / load_frame.
   # demand_fe_sectors and demand_energy_balance both use load_variable_set (variables: block →
-  # token labels + unit conversion); the adapter applies the η_td formula and AC residual
+  # token labels + unit conversion); the coupler applies the η_td formula and AC residual
   # computation on top of their already-MWh output.
   demand_fe_sectors:
     # Electricity FE sectors only: each is converted to the SE level (÷ η_td) and subtracted
@@ -322,7 +322,7 @@ default:
   # --- Hydro special case --------------------------------------------------
   # Hydro needs BOTH capacity and generation so the downstream step can derive a
   # capacity factor (generation / (capacity × 8760)) to scale hydro inflow. Read by the
-  # dedicated import_REMIND_hydro.py via load_frame — outside the adapter/capacity/cost flow.
+  # dedicated import_REMIND_hydro.py via load_frame — outside the coupler/capacity/cost flow.
   hydro_capacity:
     symbol: "Cap|Electricity|Hydro"
     unit: "GW"

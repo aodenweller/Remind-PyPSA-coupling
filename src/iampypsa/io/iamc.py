@@ -1,4 +1,4 @@
-"""Read REMIND/IAM output from the IAMC ``.mif`` exchange format.
+"""REMIND/IAM output reader for the IAMC ``.mif`` exchange format.
 
 An ``.mif`` is a ``;``-separated table with five id columns
 ``Model;Scenario;Region;Variable;Unit`` followed by one column per year; rows are one
@@ -47,8 +47,16 @@ def read_iamc(
 ) -> pd.DataFrame:
     """Read an IAMC ``.mif`` file into a long DataFrame.
 
-    Returns columns ``[model, scenario, region, variable, unit, year, value]``; ``NA``
-    entries and rows with ``NaN`` value are dropped. Pass ``variables`` to filter early.
+    ``NA`` entries and rows with ``NaN`` value are dropped.
+
+    Args:
+        path: ``.mif`` file to read.
+        variables: Variable names to keep; filtered before the melt, since on a
+            167k-variable file that matters. ``None`` keeps every variable.
+        sep: Field separator.
+
+    Returns:
+        Long frame ``[model, scenario, region, variable, unit, year, value]``.
     """
     raw = pd.read_csv(path, sep=sep, na_values=["NA"], dtype=str)
     # Drop trailing unnamed column produced by a trailing semicolon on every data row.
@@ -78,7 +86,15 @@ def _read_iamc_variables(path: str, sep: str) -> tuple[str, ...]:
 
 
 def list_iamc_variables(path: str | PathLike, sep: str = ";") -> list[str]:
-    """List the IAMC variable names present in a ``.mif`` file (sorted)."""
+    """List the IAMC variable names present in a ``.mif`` file (sorted).
+
+    Args:
+        path: ``.mif`` file to read.
+        sep: Field separator.
+
+    Returns:
+        Sorted variable names.
+    """
     return list(_read_iamc_variables(str(path), sep))
 
 
@@ -102,31 +118,25 @@ def build_variable_set(
 ) -> pd.DataFrame:
     """Map IAMC variables to token labels and compute derived linear combinations.
 
-    Generic — no REMIND-specific knowledge. Receives a long IAMC frame (from
-    ``read_iamc``) plus caller-supplied mappings, returns
-    ``[year, region, <label_col>, value, unit]``.
+    Generic — no REMIND-specific knowledge. Receives a long IAMC frame (from ``read_iamc``)
+    plus caller-supplied mappings.
 
-    Parameters
-    ----------
-    df:
-        Long IAMC frame with ``[region, variable, unit, year, value]`` columns.
-    mapping:
-        ``{variable_name: token_label}`` — direct one-to-one assignments.
-    label_col:
-        Column name for the output token column (``"technology"`` by default).
-    derived:
-        ``{token: [(coefficient, variable_name), ...]}`` — linear combinations built from
-        variables in ``df`` (which may also appear in ``mapping``). Missing component
-        variables propagate NaN (the row is dropped).
-    to_unit:
-        Target unit string.  Source unit is read homogeneously from the ``unit`` column of
-        ``df``; ``unit_factor(src, to_unit)`` is applied.  Pass ``None`` to keep the
-        source unit unchanged.
+    Args:
+        df: Long IAMC frame with ``[region, variable, unit, year, value]`` columns.
+        mapping: ``{variable_name: token_label}`` — direct one-to-one assignments.
+        label_col: Column name for the output token column.
+        derived: ``{token: [(coefficient, variable_name), ...]}`` — linear combinations built
+            from variables in ``df`` (which may also appear in ``mapping``). Missing component
+            variables propagate NaN (the row is dropped).
+        to_unit: Target unit string. Source unit is read homogeneously from the ``unit`` column
+            of ``df``; ``unit_factor(src, to_unit)`` is applied. ``None`` keeps the source unit
+            unchanged.
 
-    Returns
-    -------
-    pd.DataFrame
+    Returns:
         ``[year, region, <label_col>, value, unit]``, sorted by year/region/token.
+
+    Raises:
+        ValueError: If the source unit is not homogeneous across the selected variables.
     """
     all_vars: set[str] = set(mapping) | {v for terms in (derived or {}).values() for _, v in terms}
     sub = df[df["variable"].isin(all_vars)].copy()

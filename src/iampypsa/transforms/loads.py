@@ -1,4 +1,4 @@
-"""Convert IAM sectoral electricity demand to annual PyPSA loads.
+"""IAM sectoral electricity demand converted to annual PyPSA loads.
 
 Name-agnostic: operates on an already-loaded frame with ``[year, region, sector, value]``
 (the Coupler handles the symbol choice + fallback via the loader).
@@ -23,6 +23,20 @@ def convert_loads(
 
     Assumes ``raw`` is already in the target unit (conversion happens at the ``load_frame``
     seam); sums rows sharing a key as a guard against an unexpected extra source dimension.
+
+    Args:
+        raw: Long frame carrying at least ``year_col``, ``region_col``, ``sector_col``,
+            ``value_col``.
+        regions: Regions to keep. ``None`` keeps every region present in ``raw``.
+        year_col: Year column name.
+        region_col: Region column name.
+        sector_col: Sector column name.
+        value_col: Demand column name.
+        unit_label: Unit label stamped onto the output.
+
+    Returns:
+        ``[year_col, region_col, sector_col, value_col, "unit"]``, one row per
+        ``(year, region, sector)``, sorted.
     """
     df = raw[[year_col, region_col, sector_col, value_col]].copy()
     df["unit"] = unit_label

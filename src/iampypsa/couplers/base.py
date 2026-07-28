@@ -1,22 +1,22 @@
-"""The IAM→PyPSA coupling interface. This is exposed to pypsa models
-and is the entry point for the coupling workflow.
+"""The IAM→PyPSA coupling interface: ``Coupler``, exposed to PyPSA models as the coupling
+workflow's entry point.
 
-- ``Coupler`` is the backend-neutral base: it holds the shared, concrete builders
-(``build_co2_prices``, ``build_discount_rates``, ``downscale_country_demand``)
-- it consumes the IAM symbols (resolved via their config) and the region map, and it contains
- the reference data (population, GDP, etc.) for downscaling.
+``Coupler`` is the backend-neutral base — it holds the shared, concrete builders
+(``build_co2_prices``, ``build_discount_rates``, ``build_capacity_targets``,
+``downscale_country_demand``), consumes the IAM symbols (resolved via their config) and the
+region map, and holds the reference data (population, GDP, etc.) for downscaling.
 
 Concrete subclasses are instantiated directly by the caller, which selects on ``loader.backend``;
 a new IAM or output format is added as a further ``Coupler`` subclass, not a branch here:
+
 - ``RemindGdxCoupler``  (``iampypsa.couplers.remind``)
 - ``RemindIamcCoupler`` (``iampypsa.couplers.remind``)
 
-config keys used: ``currency_factor``, ``sector_weights``, ``countries``, ``planning_horizons``.
+Config keys used: ``currency_factor``, ``sector_weights``, ``countries``, ``planning_horizons``.
 
 ``currency_factor`` (default ``1.0``, a no-op) is a flat multiplier the caller supplies to
 convert IAM-sourced (REMIND: USD) monetary values into the target PyPSA baseline's currency —
-it is not looked up or computed here. It converts between currencies only, not between
-currency *years* (e.g. REMIND's US$2017 vs the baseline's own reporting year).
+it is not looked up or computed here.
 """
 
 import logging
@@ -26,9 +26,10 @@ from typing import Any
 import pandas as pd
 
 from iampypsa.downscale.demand import disaggregate_demand_to_country
+from iampypsa.io.loader import RemindLoader
 from iampypsa.io.remind_symbols import load_frame, load_spec, rename_technologies
 from iampypsa.transforms.capacities import (
-    adjust_link_capacities_to_input,
+    convert_capacities_to_input_capacity_basis,
     aggregate_capacities_to_carriers,
     apply_consolidation,
 )
@@ -43,7 +44,7 @@ class Coupler:
 
     def __init__(
         self,
-        loader,
+        loader: RemindLoader | None,
         symbols: dict[str, Any],
         region_map: dict[str, list[str]],
         config: dict[str, Any],
@@ -127,11 +128,14 @@ class Coupler:
     def prepare_capacities(self) -> pd.DataFrame:
         """Read installed capacities at model-tech resolution, before carrier aggregation.
 
-        Returns ``[year, region, technology, value, unit]``. Applies the capacity spec's
-        optional ``consolidation`` block (VRE-variant merging, battery scaling) and puts
-        link-like technologies on an input-capacity basis. Callers wanting PyPSA carriers use
-        :meth:`build_capacity_targets`; callers needing model-tech resolution (e.g. group-wise
-        brownfield harmonisation) use this directly.
+        Applies the capacity spec's optional ``consolidation`` block (VRE-variant merging,
+        battery scaling) and puts link-like technologies on an input-capacity basis. Callers
+        wanting PyPSA carriers use :meth:`build_capacity_targets`; this lower-level seam is for
+        callers that need model-tech resolution instead — e.g. a future group-wise brownfield
+        harmonisation step, not something either downstream model does today.
+
+        Returns:
+            ``[year, region, technology, value, unit]``.
         """
         cap_spec = self.symbols["capacity"]
         consolidation = dict(cap_spec.get("consolidation", {}))
@@ -142,7 +146,7 @@ class Coupler:
             eff = load_spec(self.loader, self.symbols["efficiency_conv"]).rename(
                 columns={"value": "efficiency"}
             )
-            caps = adjust_link_capacities_to_input(caps, eff, link_techs)
+            caps = convert_capacities_to_input_capacity_basis(caps, eff, link_techs)
         return caps
 
     def build_capacity_targets(

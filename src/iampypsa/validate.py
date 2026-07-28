@@ -1,4 +1,4 @@
-"""Validate a config-declared scenario against the actual IAM output.
+"""Scenario validation against the actual IAM output.
 
 Supports the config-declared invocation model: the user lists regions/years in config and
 this fails loudly before any prep runs if they are not present in the IAM source.
@@ -20,7 +20,16 @@ def validate_scenario_against_remind(
     """Raise if any declared region/year is absent from the IAM source.
 
     Years are read from the ``coupled_years`` symbol; regions from the ``co2_price`` frame
-    (any region-bearing symbol would do). Raises ``ValueError`` listing what is missing.
+    (any region-bearing symbol would do).
+
+    Args:
+        loader: Bound loader for the IAM source to validate against.
+        symbols: Resolved symbol map, providing ``coupled_years`` and ``co2_price``.
+        declared_regions: Regions the config declares.
+        declared_years: Years the config declares.
+
+    Raises:
+        ValueError: Listing every declared region/year absent from the IAM source.
     """
     years_frame = load_frame(loader, symbols["coupled_years"])
     available_years = {int(y) for y in years_frame["year"]}

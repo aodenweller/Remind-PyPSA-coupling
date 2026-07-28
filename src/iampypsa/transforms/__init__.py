@@ -19,7 +19,7 @@ from iampypsa.transforms.costs import (
     select_discount_rate,
 )
 from iampypsa.transforms.capacities import (
-    adjust_link_capacities_to_input,
+    convert_capacities_to_input_capacity_basis,
     aggregate_capacities_to_carriers,
     apply_consolidation,
 )
@@ -29,7 +29,7 @@ __all__ = [
     "extract_co2_prices",
     "convert_loads",
     "apply_consolidation",
-    "adjust_link_capacities_to_input",
+    "convert_capacities_to_input_capacity_basis",
     "aggregate_capacities_to_carriers",
     "annotate_cost_rows",
     "apply_currency_factor",

@@ -1,7 +1,7 @@
 """Pure steps for turning IAM installed capacities into PyPSA targets (p_nom_min).
 
 In pipeline order: consolidate variant tokens (:func:`apply_consolidation`), put link-like
-technologies on an input-capacity basis (:func:`adjust_link_capacities_to_input`), then map
+technologies on an input-capacity basis (:func:`convert_capacities_to_input_capacity_basis`), then map
 model tech tokens to PyPSA carriers and sum (:func:`aggregate_capacities_to_carriers`).
 
 Reading the symbols and sequencing these is the Coupler's job — see
@@ -16,7 +16,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def adjust_link_capacities_to_input(
+def convert_capacities_to_input_capacity_basis(
     capacities: pd.DataFrame,
     efficiencies: pd.DataFrame,
     link_techs: set[str],
@@ -27,9 +27,21 @@ def adjust_link_capacities_to_input(
     eff_col: str = "efficiency",
 ) -> pd.DataFrame:
     """Divide output-based capacities by efficiency for link-like techs (→ input basis).
-    (PyPSA links are defined by input capacity, but IAMs report output capacity.)
 
-    Rows with missing or zero efficiency are left unchanged (with a warning).
+    PyPSA links are defined by input capacity, but IAMs report output capacity.
+
+    Args:
+        capacities: Long frame with a technology and a value column.
+        efficiencies: Long frame with the same key columns plus ``eff_col``.
+        link_techs: Technology tokens to convert; other rows pass through unchanged.
+        on: Columns to join ``capacities`` and ``efficiencies`` on.
+        tech_col: Column identifying the technology.
+        value_col: Column to divide.
+        eff_col: Efficiency column in ``efficiencies``.
+
+    Returns:
+        ``capacities`` with ``value_col`` divided by efficiency for ``link_techs`` rows. Rows
+        with missing or zero efficiency are left unchanged (with a warning).
     """
     merged = capacities.merge(efficiencies, on=list(on), how="left")
     is_link = merged[tech_col].isin(link_techs)
@@ -59,10 +71,25 @@ def aggregate_capacities_to_carriers(
 ) -> pd.DataFrame:
     """Map model tech tokens to target carrier names, sum per (group, carrier).
 
-    Returns ``[year, region, carrier, value, unit]``. ``tech_to_carrier`` may be many-to-many:
-    several tokens sharing a carrier are summed; one token feeding several carriers is
-    preserved (not deduped), each carrier getting the full value. Rows whose tech token is
-    absent from ``tech_to_carrier`` are dropped with a warning.
+    ``tech_to_carrier`` may be many-to-many: several tokens sharing a carrier are summed; one
+    token feeding several carriers is preserved (not deduped), each carrier getting the full
+    value.
+
+    Args:
+        capacities: Long frame with a technology and a value column.
+        tech_to_carrier: Model tech → target carrier mapping table.
+        group_cols: Columns to group by, alongside the mapped carrier.
+        tech_col: Column identifying the technology in ``capacities``.
+        map_tech_col: Column in ``tech_to_carrier`` holding the technology token.
+        map_carrier_col: Column in ``tech_to_carrier`` holding the target carrier.
+        value_col: Column to sum.
+        unit: Unit label stamped onto the output.
+        min_value: Rows at or below this value, after summing, are dropped.
+        round_digits: Decimal places to round the summed value to.
+
+    Returns:
+        ``[*group_cols, carrier, value, unit]``. Rows whose tech token is absent from
+        ``tech_to_carrier`` are dropped with a warning.
     """
     carrier_map = tech_to_carrier[[map_tech_col, map_carrier_col]].drop_duplicates()
     mapped = capacities.merge(carrier_map, left_on=tech_col, right_on=map_tech_col, how="left")
@@ -101,6 +128,16 @@ def apply_consolidation(
        before it's renamed to its ``vre_to_primary`` target. If that target already carries a
        positive value on its own, the source rows are dropped instead of scaled (bidirectional-
        coupling guard).
+
+    Args:
+        caps: Long frame with a technology and a value column.
+        vre_to_primary: Coupled variant token → primary token renames.
+        battery_scaling: Source token → scale factor, applied before the rename.
+        tech_col: Column identifying the technology.
+        value_col: Column battery scaling multiplies.
+
+    Returns:
+        ``caps`` with battery-scaling applied and technology tokens renamed.
     """
     caps = caps.copy()
     vre_to_primary = vre_to_primary or {}

@@ -1,7 +1,7 @@
-"""Transform IAM techno-economic output into PyPSA cost tables.
+"""IAM techno-economic output transformed into PyPSA cost tables.
 
-Based on the technology mapping, extract cost parameters from the IAM output, from PyPSA costs
-or directly set them from values specified in the mapping.
+Based on the technology mapping, cost parameters come from the IAM output, from PyPSA costs,
+or are set directly from values specified in the mapping.
 
 The *extraction* of individual cost parameters is source-specific and lives in each ``Coupler`` subclass.
 The shared functions (which live here) — provide the conversion/mapping and merging tools.
@@ -88,9 +88,16 @@ def broadcast_fuel_prices(
 ) -> pd.DataFrame:
     """Turn per-fuel ``fuel`` price rows into one ``fuel`` row per technology.
 
-    Each technology in ``tech_fuel_map`` (canonical technology → fuel) gets a copy of its
-    fuel's price row; technologies absent from the map get a synthesized ``fuel: 0`` row (they
-    consume no priced primary-energy carrier). No-op when the map is absent.
+    Args:
+        costs: Long cost frame including per-fuel ``fuel`` rows.
+        tech_fuel_map: Canonical technology → fuel name. ``None``/empty is a no-op.
+        tech_col: Column identifying the technology.
+        param_col: Column identifying the parameter.
+
+    Returns:
+        ``costs`` with the ``fuel`` rows replaced: each technology in ``tech_fuel_map`` gets a
+        copy of its fuel's price row; technologies absent from the map get a synthesized
+        ``fuel: 0`` row (they consume no priced primary-energy carrier).
     """
     if not tech_fuel_map:
         return costs
@@ -123,6 +130,15 @@ def convert_investment_to_input_capacity_basis(
     in ``link_techs``. Which techs need this is specific to how the calling model's own
     network-building code consumes the result — see the caller for the reasoning per
     technology.
+
+    Args:
+        costs: Long cost frame with ``technology``, ``parameter``, ``value`` columns, carrying
+            both ``investment`` and ``efficiency`` rows for each of ``link_techs``.
+        link_techs: Technologies whose investment is on an output-capacity basis and needs
+            converting; other technologies pass through unchanged.
+
+    Returns:
+        ``costs`` with ``investment`` scaled by ``efficiency`` for ``link_techs``.
     """
     costs = costs.copy()
     for tech in link_techs:
@@ -136,20 +152,32 @@ def convert_investment_to_input_capacity_basis(
 def select_discount_rate(rates: pd.DataFrame, year: int, regions: Iterable[str]) -> pd.Series:
     """Return the discount rate per region for ``year``, indexed by region.
 
-    Falls back to the most recent earlier year's value when a region has no value for
-    ``year`` (e.g. a trailing NaN in the source), logging a warning for those regions.
+    Falls back to a region's *latest available year* when it has no value for ``year`` — meant
+    for planning horizons beyond the source's last reported year (e.g. requesting 2110 when the
+    source ends at 2100), logging a warning for those regions. Note this also fires for an
+    interior gap (e.g. a trailing NaN): for a region with data at 2020/2030/2100, requesting
+    2040 likewise returns the 2100 value, not an interpolated or nearest-earlier one.
+
+    Args:
+        rates: Long frame with ``region``, ``year``, ``value`` columns.
+        year: Year to select.
+        regions: Regions the result must cover.
+
+    Returns:
+        Discount rate per region, indexed by region.
+
+    Raises:
+        ValueError: If a region in ``regions`` has no value for any year.
     """
     last = rates.sort_values("year").groupby("region")["value"].last()
     missing = set(regions) - set(last.index)
     if missing:
-        raise ValueError(
-            f"No discount rate for year {year} or any earlier year, regions: {sorted(missing)}"
-        )
+        raise ValueError(f"No discount rate for any year, regions: {sorted(missing)}")
     exact = rates[rates["year"].astype(str) == str(year)].set_index("region")["value"]
     filled = last.index.difference(exact.index)
     if len(filled):
         logger.warning(
-            "Discount rate absent for year %d in regions %s; using most-recent value.",
+            "Discount rate absent for year %d in regions %s; using latest available year.",
             year, sorted(filled),
         )
     return exact.combine_first(last)
@@ -164,8 +192,15 @@ def add_discount_rate(
 ) -> pd.DataFrame:
     """Add a ``discount rate`` row for every technology that does not already have one.
 
-    ``source``/``reference`` annotate provenance; pass them through from the Coupler's config
-    so the same transform serves any IAM without code edits.
+    Args:
+        costs: Long cost frame with ``technology`` and ``parameter`` columns.
+        discount_rate: Rate to add, as a per-unit fraction.
+        source: Provenance tag for the new rows' ``source`` column; pass through from the
+            Coupler's config so the same transform serves any IAM without code edits.
+        reference: Provenance note for the new rows' ``further description`` column.
+
+    Returns:
+        ``costs`` with a ``discount rate`` row appended per technology that lacked one.
     """
     have = costs.loc[costs["parameter"] == "discount rate", "technology"]
     missing = costs.loc[~costs["technology"].isin(have), ["technology"]].drop_duplicates()
@@ -327,8 +362,18 @@ def apply_overrides(
 ) -> pd.DataFrame:
     """Update and insert ``overrides`` onto ``costs`` by ``(technology, parameter)``.
 
-    Rows whose key is absent from ``costs`` are added; for keys present in both,
-    ``value``/``unit``/``source``/``further description`` are overwritten from ``overrides``.
+    Args:
+        costs: Long cost frame indexed by ``(technology, parameter)``.
+        overrides: Long frame of the same shape; must not contain duplicate keys.
+
+    Returns:
+        ``costs`` with ``overrides`` applied: rows whose key is absent from ``costs`` are
+        added; for keys present in both, ``value``/``unit``/``source``/``further description``
+        are overwritten from ``overrides``.
+
+    Raises:
+        ValueError: If ``overrides`` has duplicate ``(technology, parameter)`` keys, or if the
+            merge itself produces duplicates.
     """
     base = costs.set_index(["technology", "parameter"]).copy()
     ov = overrides.set_index(["technology", "parameter"]).copy()

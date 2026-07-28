@@ -338,7 +338,7 @@ def test_mif_vocabulary_matches_gdx_technology_names():
 
 def test_tech_fuel_map_is_keyed_by_the_canonical_vocabulary():
     """The mif tech_fuel_map is keyed by canonical names, not raw tokens. (The gdx has no static
-    tech_fuel_map — it derives one from pe2se at runtime; see RemindGdxCoupler._tech_fuel_map_from_pe2se.)"""
+    tech_fuel_map — it derives one from pe2se at runtime; see RemindGdxCoupler._build_tech_fuel_map.)"""
     gdx = read_symbol_config(backend="gdx")["default"]
     mif = read_symbol_config(backend="iamc")["default"]
     assert "tech_fuel_map" not in gdx  # gdx derives it from pe2se instead

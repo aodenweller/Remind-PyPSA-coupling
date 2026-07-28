@@ -42,8 +42,16 @@ UNIT_CONVERSIONS: dict[tuple[str, str], float] = {
 def unit_factor(from_unit: str, to_unit: str) -> float:
     """Return the multiplicative factor converting ``from_unit`` → ``to_unit``.
 
-    Identical units return 1.0. An undeclared pair raises (fail loud, not silently wrong) —
-    add it to ``UNIT_CONVERSIONS``.
+    Args:
+        from_unit: Source unit string.
+        to_unit: Target unit string.
+
+    Returns:
+        The multiplicative factor. Identical units return 1.0.
+
+    Raises:
+        KeyError: If the pair is not declared in ``UNIT_CONVERSIONS`` (fail loud, not
+            silently wrong) — add it there.
     """
     if from_unit == to_unit:
         return 1.0

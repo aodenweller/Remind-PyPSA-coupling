@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from iampypsa.transforms.capacities import (
-    adjust_link_capacities_to_input,
+    convert_capacities_to_input_capacity_basis,
     aggregate_capacities_to_carriers,
     apply_consolidation,
 )
@@ -30,7 +30,7 @@ def test_adjust_link_capacities_divides_by_efficiency():
                          "technology": ["elh2", "ngcc"], "value": [100.0, 100.0]})
     eff = pd.DataFrame({"year": [2050, 2050], "region": ["DEU", "DEU"],
                         "technology": ["elh2", "ngcc"], "efficiency": [0.5, 0.6]})
-    out = adjust_link_capacities_to_input(caps, eff, link_techs={"elh2"}).set_index("technology")["value"]
+    out = convert_capacities_to_input_capacity_basis(caps, eff, link_techs={"elh2"}).set_index("technology")["value"]
     assert out["elh2"] == pytest.approx(200.0)   # 100 / 0.5
     assert out["ngcc"] == pytest.approx(100.0)    # not a link tech -> unchanged
 

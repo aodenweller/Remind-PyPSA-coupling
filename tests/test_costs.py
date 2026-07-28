@@ -39,7 +39,7 @@ def test_build_overrides_maps_and_dedups():
 
 
 def test_build_overrides_raises_on_missing_iam_data():
-    """An 'IAM'-declared parameter with no matching adapter row is a hard failure."""
+    """An 'IAM'-declared parameter with no matching coupler row is a hard failure."""
     technologies = {"electrolysis": "IAM"}
     remind_long = pd.DataFrame(
         {"region": ["DEU"], "technology": ["electrolysis"], "parameter": ["investment"],

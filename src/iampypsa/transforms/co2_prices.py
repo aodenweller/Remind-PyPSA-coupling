@@ -1,4 +1,4 @@
-"""Extract a CO2 price pathway.
+"""CO2 price pathway extraction.
 
 The transform is name-agnostic: it takes an already-loaded frame with canonical columns
 ``[region, year, value]`` (the loader/Coupler handles the GDX symbol + renames). Unit
@@ -22,8 +22,17 @@ def extract_co2_prices(
 ) -> pd.DataFrame:
     """Extract the per-(region, year) CO2 price pathway, filtered and reindexed.
 
-    Filters to ``regions`` if given and, if ``years`` is given, reindexes to the full
-    ``regions × years`` grid (missing entries filled with 0).
+    Args:
+        raw: Long frame carrying at least ``region_col``, ``year_col``, ``value_col``.
+        regions: Regions to keep. ``None`` keeps every region present in ``raw``.
+        years: If given, reindex to the full ``regions × years`` grid, filling missing
+            entries with 0. ``None`` leaves the row set as-is.
+        region_col: Region column name.
+        year_col: Year column name.
+        value_col: Price column name.
+
+    Returns:
+        ``[region_col, year_col, value_col]``, sorted by region then year.
     """
     df = raw[[region_col, year_col, value_col]].copy()
     df[year_col] = df[year_col].astype(int)

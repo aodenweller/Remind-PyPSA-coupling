@@ -1,4 +1,4 @@
-"""Read cooling/heating degree-day (CDD/HDD) proxy datasets used to weight downscaling.
+"""Cooling/heating degree-day (CDD/HDD) proxy datasets used to weight downscaling.
 
 Degree-day CSVs carry columns ``[year, country, type, tlim_setpoint, rcp, ssp, value]`` with
 ``country`` as ISO3 and ``type`` one of ``CDD``/``HDD``. ``read_degree_days`` selects one
@@ -28,10 +28,23 @@ def read_degree_days(
 ) -> pd.DataFrame:
     """Read a degree-day CSV and return the ``[iso2, year, value]`` proxy frame.
 
-    Filters to ``type == dd_type`` (``CDD``/``HDD``), the given ``tlim_setpoint``, ``rcp`` and
-    ``ssp``; converts ISO3 → ISO2 (unmapped codes dropped) and sums any duplicates. Raises
-    ``ValueError`` for an unknown ``dd_type`` or a selection matching no rows (the message lists the
-    available values to ease debugging — e.g. a ``tlim_setpoint`` outside the data's range).
+    Filters to ``type == dd_type``, the given ``tlim_setpoint``, ``rcp`` and ``ssp``; converts
+    ISO3 → ISO2 (unmapped codes dropped) and sums any duplicates.
+
+    Args:
+        path: Degree-day CSV with ``[year, country, type, tlim_setpoint, rcp, ssp, value]``.
+        dd_type: ``"CDD"`` or ``"HDD"`` (case-insensitive).
+        tlim_setpoint: Temperature setpoint to select, compared numerically.
+        rcp: RCP scenario to select (e.g. ``"4_5"``), compared as a string.
+        ssp: SSP scenario to select (e.g. ``"SSP2"``), compared as a string.
+
+    Returns:
+        ``[iso2, year, value]``, the same shape as ``io.ssp.read_ssp_data``.
+
+    Raises:
+        ValueError: If ``dd_type`` is unknown, or the selection matches no rows — the message
+            lists the available values to ease debugging (e.g. a ``tlim_setpoint`` outside the
+            data's range).
     """
     dd_type = str(dd_type).upper()
     if dd_type not in _VALID_TYPES:
